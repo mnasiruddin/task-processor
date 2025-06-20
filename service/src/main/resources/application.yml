@@ -1,0 +1,38 @@
+management:
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  info:
+    env:
+      enabled: true
+
+spring:
+  application:
+    name: task-service
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/task
+    username: postgres
+    password: postgres
+
+info:
+  app:
+    name: Task Service
+    description: Task processing service for CoolPlanet
+    version: 1.0.0
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui/index.html
+    enabled: true
+    operationsSorter: method
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:}] [traceId=%X{traceId} spanId=%X{spanId}]"
+    console: "[traceId=%X{traceId} spanId=%X{spanId}] %d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
