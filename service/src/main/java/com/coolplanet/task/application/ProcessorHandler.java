@@ -1,8 +1,10 @@
 package com.coolplanet.task.application;
 
+import com.coolplanet.task.adapter.KafkaProducer;
 import com.coolplanet.task.application.service.TaskAverageService;
 import com.coolplanet.task.application.service.TaskProcessorService;
 import com.coolplanet.task.application.service.TaskService;
+import com.coolplanet.task.config.FeatureConfig;
 import com.coolplanet.task.domain.model.TaskContext;
 import com.coolplanet.task.domain.model.TaskDTO;
 import com.coolplanet.task.domain.model.TaskResponse;
@@ -56,17 +58,30 @@ public class ProcessorHandler implements Handler {
 
     private final TaskService<TaskResponse, TaskContext> taskProcessorService;
     private final TaskService<TaskDTO, TaskContext> taskAverageService;
+    private final KafkaProducer kafkaProducer;
+    private final FeatureConfig featureConfig;
 
-    public ProcessorHandler(TaskProcessorService taskProcessorService, TaskAverageService taskAverageService) {
+    public ProcessorHandler(TaskProcessorService taskProcessorService, TaskAverageService taskAverageService, KafkaProducer kafkaProducer, FeatureConfig featureConfig) {
         this.taskProcessorService = taskProcessorService;
         this.taskAverageService = taskAverageService;
+        this.kafkaProducer = kafkaProducer;
+        this.featureConfig = featureConfig;
     }
 
     public Mono<?> handle(TaskContext context) {
         log.info("Handling process for {}", context.workflowType.name());
 
         return switch (context.workflowType) {
-            case PROCESS_TASK -> taskProcessorService.process(context);
+            case PROCESS_TASK -> {
+                if (featureConfig.isAsyncEnabled()) {
+                    log.info("Sending task via Async flow i.e via Kafka to DB");
+                    yield kafkaProducer.sendTask((TaskDTO) context.request)
+                            .thenReturn(new TaskResponse("OK"));
+                } else {
+                    log.info("Sending task via Sync flow i.e directly to DB");
+                    yield taskProcessorService.process(context);
+                }
+            }
             case CALCULATE_AVERAGE_DURATION -> taskAverageService.process(context);
             default -> throw new IllegalArgumentException("Unknown workflow type: " + context.workflowType);
         };

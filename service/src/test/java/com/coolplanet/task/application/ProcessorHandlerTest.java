@@ -1,7 +1,9 @@
 package com.coolplanet.task.application;
 
+import com.coolplanet.task.adapter.KafkaProducer;
 import com.coolplanet.task.application.service.TaskAverageService;
 import com.coolplanet.task.application.service.TaskProcessorService;
+import com.coolplanet.task.config.FeatureConfig;
 import com.coolplanet.task.domain.model.TaskContext;
 import com.coolplanet.task.domain.model.TaskDTO;
 import com.coolplanet.task.domain.model.TaskResponse;
@@ -28,13 +30,15 @@ import static org.mockito.Mockito.when;
  */
 class ProcessorHandlerTest {
 
+    private final TaskProcessorService taskProcessorService = Mockito.mock(TaskProcessorService.class);
+    private final TaskAverageService taskAverageService = Mockito.mock(TaskAverageService.class);
+    private final FeatureConfig featureConfig = Mockito.mock(FeatureConfig.class);
+    private final KafkaProducer kafkaProducer = Mockito.mock(KafkaProducer.class);
+    private final ProcessorHandler processorHandler = new ProcessorHandler(taskProcessorService, taskAverageService, kafkaProducer, featureConfig);
+
     @Test
     void shouldCallProcessorServiceWhenWorkflowTypeIsProcessTask() {
         // Arrange
-        TaskProcessorService taskProcessorService = Mockito.mock(TaskProcessorService.class);
-        TaskAverageService taskAverageService = Mockito.mock(TaskAverageService.class);
-        ProcessorHandler processorHandler = new ProcessorHandler(taskProcessorService, taskAverageService);
-
         TaskContext context = TaskContext.builder()
                 .workflowType(WorkflowType.PROCESS_TASK)
                 .request(new Object())
@@ -52,10 +56,6 @@ class ProcessorHandlerTest {
     @Test
     void shouldCallAverageServiceWhenWorkflowTypeIsCalculateAverageDuration() {
         // Arrange
-        TaskProcessorService taskProcessorService = Mockito.mock(TaskProcessorService.class);
-        TaskAverageService taskAverageService = Mockito.mock(TaskAverageService.class);
-        ProcessorHandler processorHandler = new ProcessorHandler(taskProcessorService, taskAverageService);
-
         TaskContext context = TaskContext.builder()
                 .workflowType(WorkflowType.CALCULATE_AVERAGE_DURATION)
                 .request(new Object())
@@ -73,10 +73,6 @@ class ProcessorHandlerTest {
     @Test
     void shouldThrowExceptionWhenWorkflowTypeIsUnknown() {
         // Arrange
-        TaskProcessorService taskProcessorService = Mockito.mock(TaskProcessorService.class);
-        TaskAverageService taskAverageService = Mockito.mock(TaskAverageService.class);
-        ProcessorHandler processorHandler = new ProcessorHandler(taskProcessorService, taskAverageService);
-
         TaskContext context = TaskContext.builder()
                 .workflowType(WorkflowType.INVALID_WORKFLOW) // Invalid workflow
                 .request(new Object())
@@ -89,10 +85,6 @@ class ProcessorHandlerTest {
     @Test
     void shouldThrowExceptionWhenTaskContextIsNull() {
         // Arrange
-        TaskProcessorService taskProcessorService = Mockito.mock(TaskProcessorService.class);
-        TaskAverageService taskAverageService = Mockito.mock(TaskAverageService.class);
-        ProcessorHandler processorHandler = new ProcessorHandler(taskProcessorService, taskAverageService);
-
         // Act & Assert
         assertThrows(NullPointerException.class, () -> processorHandler.handle(null).block());
     }

@@ -10,6 +10,10 @@ management:
     env:
       enabled: true
 
+app:
+  kafka:
+    topic: task-events
+
 spring:
   application:
     name: task-service
@@ -17,6 +21,20 @@ spring:
     url: r2dbc:postgresql://localhost:5432/task
     username: postgres
     password: postgres
+  kafka:
+    consumer:
+      auto-offset-reset: earliest
+      bootstrap-servers: localhost:9092
+      group-id: task-consumer-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.coolplanet.task.domain.model
+    producer:
+      acks: -1
+      bootstrap-servers: localhost:9092
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 info:
   app:
@@ -32,7 +50,14 @@ springdoc:
     enabled: true
     operationsSorter: method
 
+features:
+  task:
+    async-enabled: true
+
 logging:
+  level:
+    org.apache.kafka: INFO
+    org.springframework.kafka: INFO
   pattern:
     level: "%5p [${spring.application.name:}] [traceId=%X{traceId} spanId=%X{spanId}]"
     console: "[traceId=%X{traceId} spanId=%X{spanId}] %d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

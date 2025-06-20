@@ -27,6 +27,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record TaskDTO (
         @Schema(description = "Unique identifier of the task", example = "task-123")
         String taskId,
-        @Schema(description = "Total duration in milliseconds", example = "1000")
+        @Schema(description = "Total duration in milliseconds", example = "1000L")
         long totalDurationMs) {
 }

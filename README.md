@@ -193,7 +193,7 @@ docker-compose up --build
 
 ```bash
 # Start DB
-docker-compose -f docker-compose-postgres-only.yml up --build
+docker-compose -f docker-compose-without-task-app.yml up --build
 
 # Build JAR
 mvn clean install
