@@ -186,7 +186,6 @@ The app uses **Micrometer + Brave** for observability and tracing.
 ### 💻 Local Dockerized Run
 
 ```bash
-cd task-processor
 docker-compose up --build
 ```
 
