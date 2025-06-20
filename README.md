@@ -1,8 +1,8 @@
 # Task Processing Service
 
-## 🛍️ Overview
+## 🏍️ Overview
 
-A high-performance, reactive task processing service built with Spring WebFlux and R2DBC. This service handles task duration tracking and provides statistical analysis capabilities while ensuring thread-efficient processing and data consistency under concurrent operations.
+A high-performance, reactive task processing service built with Spring WebFlux and R2DBC. It features task duration tracking, Kafka integration, and statistical analysis while ensuring concurrency safety and asynchronous toggling via feature flags.
 
 🔗 Project Link: [https://github.com/mnasiruddin/task-processor](https://github.com/mnasiruddin/task-processor)
 
@@ -10,32 +10,30 @@ A high-performance, reactive task processing service built with Spring WebFlux a
 
 ## ✨ Features
 
-* ⚡ Reactive endpoints using Spring WebFlux
-* 🧵 Non-blocking database operations with R2DBC
-* 🔀 Concurrent task processing with atomic operations
-* ⏱ Task duration tracking and statistics
-* 📂 PostgreSQL database integration
-* ✅ Comprehensive test coverage using TestContainers
+| Category      | Capabilities                                                                |
+| ------------- | --------------------------------------------------------------------------- |
+| Reactive      | WebFlux-based endpoints, Project Reactor, non-blocking DB with R2DBC        |
+| Data Layer    | PostgreSQL integration, atomic upserts, async persistence                   |
+| Messaging     | Kafka producer + consumer with toggle-based async/sync task dispatch        |
+| Observability | Micrometer tracing, MDC, Brave integration, `X-Trace-Id` header propagation |
+| Documentation | SpringDoc OpenAPI & Swagger                                                 |
+| Testing       | TestContainers, JaCoCo test coverage, K6 performance benchmarks             |
 
 ---
 
 ## 🛠 Tech Stack
 
-* **Java 21**
-* **Spring Boot 3.3.0**
-* **Spring WebFlux** – Reactive web framework
-* **R2DBC** – Reactive database connectivity
-* **PostgreSQL** – Primary database
-* **Project Reactor** – Reactive programming library
-* **Lombok** – Boilerplate code reduction
-* **TestContainers** – Integration testing with real databases
-* **SpringDoc OpenAPI** – API documentation
+| Core              | Infrastructure             | Tooling                        |
+| ----------------- | -------------------------- | ------------------------------ |
+| Java 21           | PostgreSQL                 | Docker, Docker Compose         |
+| Spring Boot 3.3.0 | Kafka (Confluent)          | K6 (via TestContainers)        |
+| Spring WebFlux    | R2DBC                      | SpringDoc OpenAPI + Swagger UI |
+| Project Reactor   | TestContainers             | JaCoCo                         |
+| Lombok            | Feature-based async toggle | Micrometer + Brave             |
 
 ---
 
 ## 🚱 Clean Architecture Structure
-
-The project follows **Clean Architecture** principles:
 
 ```
 Controller → Application → Domain
@@ -49,58 +47,46 @@ Controller → Application → Domain
 task-service/
 ├── application/           # Business use cases, service interfaces
 ├── domain/                # Core business logic and entities
-├── infrastructure/        # External systems (DB, messaging)
+├── infrastructure/        # External systems (DB, Kafka, etc.)
 ├── adapter/               # WebFlux controllers
 ├── config/                # Tracing, filters, observability
 ├── resources/             # Config files (YAML, static)
 └── TaskServiceApplication.java
 ```
 
-### ✅ Layer Roles
+---
 
-| Layer              | Responsibility                                         |
-| ------------------ | ------------------------------------------------------ |
-| **Domain**         | Business rules, pure Java, no Spring dependency        |
-| **Application**    | Orchestrates use cases, defines interfaces             |
-| **Infrastructure** | Implements external systems (PostgreSQL, Kafka, Redis) |
-| **Adapter**        | Exposes REST APIs using WebFlux                        |
-| **Config**         | Spring beans, interceptors, tracing, actuator          |
+## 🧩 Design Choices
+
+This project was crafted with extensibility and clarity in mind. Key decisions:
+
+| Design Area           | Description                                                                  |
+| --------------------- | ---------------------------------------------------------------------------- |
+| Context Object        | `TaskContext` is passed through the layers to ensure encapsulated logic      |
+| Handler Chain         | `ProcessorHandler` interprets workflows and delegates to appropriate service |
+| Delegation            | Each `Processor` delegates to its service (e.g., `TaskProcessorService`)     |
+| Async Flexibility     | Feature flag toggles between Kafka async and direct sync service execution   |
+| Factory Pattern       | Processor creation is abstracted via factory classes                         |
+| Single Responsibility | Each layer adheres to SRP for better testability and scalability             |
+
+This modular flow ensures all task operations flow cleanly from controller → context → handler → processor → service, with optional Kafka-based async persistence.
 
 ---
 
-## 🗂 Core Components
+## 📂 Core Components
 
-### 🔌 Controllers
-
-* `TaskController` – Exposes REST endpoints
-
-  * POST `/tasks` – Record new task
-  * GET `/tasks/{taskId}/average` – Get average duration
-
-### 🧠 Application Layer
-
-* `ProcessorHandler` – Routes based on workflow type
-* `TaskProcessorService` – Records & processes durations
-* `TaskAverageService` – Computes task averages
-* `TaskService` – Interface for service contracts
-
-### 📟 Domain Model
-
-* `TaskContext` – Context for task operations
-* `TaskDTO` – Input data
-* `TaskResponse` – Output response
-* `WorkflowType` – Enum of supported workflows
-
-### 📂 Infrastructure
-
-* `TaskRepository` – R2DBC database interaction
-* `TaskEntity` – Database table mapping
+| Layer              | Classes/Responsibilities                                                        |
+| ------------------ | ------------------------------------------------------------------------------- |
+| **Controller**     | `TaskController` → POST `/tasks`, GET `/tasks/{taskId}/average`                 |
+| **Application**    | `ProcessorHandler`, `TaskProcessorService`, `TaskAverageService`, `TaskService` |
+| **Domain**         | `TaskDTO`, `TaskContext`, `WorkflowType`, `TaskResponse`                        |
+| **Infrastructure** | `TaskRepository`, `TaskEntity`, Kafka consumer/producer setup                   |
 
 ---
 
 ## 📂 Database Schema
 
-```
+```sql
 CREATE TABLE IF NOT EXISTS task (
   id SERIAL,
   task_id VARCHAR(255) NOT NULL PRIMARY KEY,
@@ -111,67 +97,66 @@ CREATE TABLE IF NOT EXISTS task (
 
 ---
 
+## ✅ Kafka Integration & Feature Toggle
+
+The application supports **sync** and **async** task processing modes via Kafka, configurable using `application.yml`:
+
+```yaml
+features:
+  task:
+    async-enabled: true                # Toggle async Kafka mode
+```
+
+| Component       | Responsibility                                                  |
+| --------------- | --------------------------------------------------------------- |
+| `KafkaProducer` | Sends `TaskDTO` to Kafka topic if feature flag is enabled       |
+| `KafkaConsumer` | Listens on topic, deserializes `TaskDTO`, calls `TaskProcessor` |
+| `FeatureConfig` | Switches sync vs async dispatch based on config                 |
+
+✅ **When `enabled: false`**, the system bypasses Kafka and calls the DB directly.
+
+---
+
 ## ✅ Test Coverage
 
-* Line coverage: \~90% via JaCoCo
-* Report location: `target/site/jacoco/index.html`
+| Metric        | Value  |
+| ------------- |--------|
+| Line Coverage | \~88%  |
+| Tool          | JaCoCo |
 
-![test coverage report](/docs/testcoverage/test-coverage.png)
-
-To generate:
+📍 Report: `target/site/jacoco/index.html`
 
 ```bash
 mvn clean verify
 ```
 
+![test coverage report](/docs/testcoverage/test-coverage.png)
+
 ---
 
-## 🚀 Performance Testing Metrics
+## 🚀 Performance Testing
 
-### 🔍 Load Test: `PerformanceTest.java`
-
-**Scenarios:**
-
-* 100 concurrent users
-* 1-minute duration
-* POST /tasks
-
-**Results:**
-
-* 📈 100 req/sec throughput
-* 🕒 Avg response: 45ms
-* ❌ Error rate: <1%
+| Scenario | Details                                  |
+| -------- | ---------------------------------------- |
+| Load     | 100 concurrent users, 1 min, POST /tasks |
+| Results  | 100 req/sec, avg 45ms, error rate <1%    |
+| Tooling  | K6 via TestContainers                    |
 
 ![perf test metrics](/docs/testcoverage/perf-test-metrics.png)
-
-[result.json](/perf-test/k6-report.json)
-
-**Tools:** K6 + Test containers
+[Report JSON](/perf-test/k6-report.json)
 
 ---
 
 ## 📡 Distributed Tracing
 
-The app uses **Micrometer + Brave** for observability and tracing.
-
 ![tracing](/docs/tracing-info.png)
 
-### 🔍 Features:
-
-* Header propagation: `X-Trace-Id`
-* MDC logging context
-* Span lifecycle for HTTP calls
-
-### 🔧 Key Classes
-
-* `TracingConfig` – Sets up Brave tracer + MDC
-* `TraceHeaderFilter` – Extracts/propagates trace headers
-
-**Log Format:**
-
-```
-[traceId=%X{traceId} spanId=%X{spanId}] yyyy-MM-dd HH:mm:ss [thread] LEVEL logger - message
-```
+| Feature            | Description                                   |
+| ------------------ | --------------------------------------------- |
+| Header Propagation | `X-Trace-Id` tracked through MDC & logs       |
+| Tracer             | Brave tracer via Micrometer                   |
+| Config             | `TracingConfig`, `TraceHeaderFilter`          |
+| Log Format         | `[traceId=%X{traceId} spanId=%X{spanId}] ...` |
 
 ---
 
@@ -183,30 +168,30 @@ The app uses **Micrometer + Brave** for observability and tracing.
 * Docker + Docker Compose
 * Maven
 
-### 💻 Local Dockerized Run
+### Docker Run
 
 ```bash
 docker-compose up --build
 ```
 
-### 💻 Run App Outside Docker
+### Manual Run (Local Dev)
 
 ```bash
-# Start DB
+# Start PostgreSQL + Kafka
 docker-compose -f docker-compose-without-task-app.yml up --build
 
-# Build JAR
+# Build App
 mvn clean install
 
-# Run app
+# Run
 mvn -pl service spring-boot:run
 ```
 
 ---
 
-## ✅ Health Check
+## ✅ Health Endpoints
 
-* [Actuator Root](http://localhost:8080/actuator)
+* [Actuator](http://localhost:8080/actuator)
 * [Info](http://localhost:8080/actuator/info)
 * [Health](http://localhost:8080/actuator/health)
 
@@ -218,27 +203,33 @@ mvn -pl service spring-boot:run
 * [OpenAPI JSON](http://localhost:8080/v3/api-docs)
 * [OpenAPI YAML](http://localhost:8080/v3/api-docs.yaml)
 
-### 📌 Endpoints
+### Key Endpoints
 
-**POST /tasks**
-
-* Params: `id`, `duration`
-* Returns: `202 ACCEPTED`
-
-**GET /tasks/{taskId}/average**
-
-* Returns: average duration
+| Method | Endpoint                        | Description                       |
+| ------ |---------------------------------| --------------------------------- |
+| POST   | `/tasks?taskId=123&duration=50` | Submit task duration              |
+| GET    | `/tasks/{taskId}/average`       | Fetch aggregated average duration |
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ Configuration Sample
 
 ```yaml
 spring:
+  application:
+    name: task-service
   r2dbc:
-    url: r2dbc:postgresql://localhost:5432/taskdb
+    url: r2dbc:postgresql://localhost:5432/task
     username: postgres
     password: postgres
+  kafka:
+    consumer:
+      ....
+    producer:
+      ....
+features:
+  task:
+    async-enabled: true
 ```
 
 ---
@@ -249,26 +240,22 @@ spring:
 mvn test
 ```
 
-* Integration tests auto-start PostgreSQL via TestContainers
+🧪 Uses TestContainers to spin up PostgreSQL
 
 ---
 
 ## 🚦 Performance Considerations
 
-### ⚙️ Concurrency
-
-* Atomic DB upserts
-* Non-blocking reactive pipelines
-
-### 📁 DB Efficiency
-
-* Accumulate stats via counters
-* Use R2DBC for async I/O
+| Aspect      | Optimizations                                                       |
+| ----------- | ------------------------------------------------------------------- |
+| Concurrency | Reactive pipelines, atomic upserts, async toggling via feature flag |
+| Database    | Counters for aggregates, R2DBC for async I/O                        |
+| Messaging   | Kafka-based async ingestion (optional)                              |
 
 ---
 
 ## 📊 Monitoring & Observability
 
-* Actuator endpoints
-* Tracing with `X-Trace-Id`
-* Logging context via MDC
+* Actuator metrics
+* Trace ID correlation in logs
+* Brave & Micrometer tracing
