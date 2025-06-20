@@ -168,6 +168,13 @@ mvn clean verify
 * Docker + Docker Compose
 * Maven
 
+```
+Note: 
+Below Error means you are using either java 23/24, use java 21
+java: java.lang.ExceptionInInitializerError
+com.sun.tools.javac.code.TypeTag :: UNKNOWN
+```
+
 ### Docker Run
 
 ```bash
